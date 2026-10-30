@@ -9,6 +9,9 @@ import {
 } from "lucide-react";
 import { predictSingle, getTransactions, getTransaction } from "../api";
 
+const FEATURE_NAMES = ["Time", ...Array.from({ length: 28 }, (_, index) => `V${index + 1}`), "Amount"];
+const EMPTY_FEATURES = Object.fromEntries(FEATURE_NAMES.map((name) => [name, ""]));
+
 export default function SingleTransaction({ onSaveResult }) {
   const [selectedId, setSelectedId] = useState(0);
   const [searchInput, setSearchInput] = useState("0");
@@ -18,6 +21,8 @@ export default function SingleTransaction({ onSaveResult }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [datasetList, setDatasetList] = useState([]);
+  const [datasetAvailable, setDatasetAvailable] = useState(false);
+  const [manualFeatures, setManualFeatures] = useState(EMPTY_FEATURES);
 
   // Curated quick samples from actual dataset for demonstration
   const quickSamples = [
@@ -52,9 +57,17 @@ export default function SingleTransaction({ onSaveResult }) {
     let isMounted = true;
     getTransactions(1, 25)
       .then((res) => {
-        if (isMounted) setDatasetList(res.items || []);
+        if (isMounted) {
+          setDatasetList(res.items || []);
+          setDatasetAvailable(true);
+        }
       })
-      .catch(() => {});
+      .catch((err) => {
+        if (isMounted) {
+          setDatasetAvailable(false);
+          setError(err.message || "Historical dataset is unavailable. Enter features manually.");
+        }
+      });
 
     const loadInitial = async () => {
       try {
@@ -78,6 +91,29 @@ export default function SingleTransaction({ onSaveResult }) {
     };
   }, []);
 
+  const handleManualFeatureChange = (name, value) => {
+    setManualFeatures((current) => ({ ...current, [name]: value }));
+    setResult(null);
+  };
+
+  const getManualFeaturePayload = () => {
+    const missing = FEATURE_NAMES.find((name) => manualFeatures[name].trim() === "");
+    if (missing) {
+      setError(`Enter a numeric value for ${missing}.`);
+      return null;
+    }
+
+    const values = Object.fromEntries(
+      FEATURE_NAMES.map((name) => [name, Number(manualFeatures[name])])
+    );
+    const invalid = FEATURE_NAMES.find((name) => !Number.isFinite(values[name]));
+    if (invalid) {
+      setError(`${invalid} must be a valid finite number.`);
+      return null;
+    }
+    return values;
+  };
+
   const handleSelectChange = (e) => {
     const val = parseInt(e.target.value, 10);
     if (!isNaN(val)) {
@@ -98,18 +134,19 @@ export default function SingleTransaction({ onSaveResult }) {
   };
 
   const handlePredict = async () => {
-    if (selectedId === null || selectedId === undefined) return;
+    const features = datasetAvailable ? null : getManualFeaturePayload();
+    if (!datasetAvailable && !features) return;
     try {
       setPredicting(true);
       setError(null);
-      const res = await predictSingle(selectedId);
+      const res = await predictSingle(datasetAvailable ? selectedId : null, features);
       setResult(res);
 
       if (onSaveResult) {
         onSaveResult({
-          id: selectedId,
-          time: res.details?.Time || txDetails?.Time || 0,
-          amount: res.details?.Amount || txDetails?.Amount || 0,
+          id: res.transaction_id,
+          time: res.details?.Time || 0,
+          amount: res.details?.Amount || 0,
           anomaly_score: res.anomaly_score,
           threshold: res.threshold,
           prediction: res.prediction,
@@ -150,11 +187,17 @@ export default function SingleTransaction({ onSaveResult }) {
 
       {/* Transaction Selection Card */}
       <div className="card">
-        <h2 className="card-title">Select Transaction from Dataset</h2>
+        <h2 className="card-title">
+          {datasetAvailable ? "Select Transaction from Dataset" : "Enter Transaction Features"}
+        </h2>
         <p className="card-subtitle">
-          Pick a curated transaction sample or search by index (0 to 284,806)
+          {datasetAvailable
+            ? "Pick a curated transaction sample or search by index (0 to 284,806)"
+            : "The historical dataset is unavailable. Enter all 30 PCA-based features for model inference."}
         </p>
 
+        {datasetAvailable ? (
+          <>
         {/* Quick Sample Selector */}
         <div style={{ marginBottom: "20px" }}>
           <label className="form-label">Curated Representative Samples:</label>
@@ -216,6 +259,33 @@ export default function SingleTransaction({ onSaveResult }) {
             </form>
           </div>
         </div>
+          </>
+        ) : (
+          <div>
+            <div className="alert-card" style={{ marginBottom: "18px" }}>
+              <Info size={18} />
+              <span>
+                V1–V28 are PCA-transformed numerical features from the original transaction data,
+                not ordinary financial fields such as merchant or card number.
+              </span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "12px", marginBottom: "20px" }}>
+              {FEATURE_NAMES.map((name) => (
+                <label key={name} className="form-label">
+                  {name}
+                  <input
+                    type="number"
+                    step="any"
+                    className="form-control"
+                    value={manualFeatures[name]}
+                    onChange={(event) => handleManualFeatureChange(name, event.target.value)}
+                    placeholder={`Enter ${name}`}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Readable Transaction Details */}
         {txDetails && (
@@ -281,7 +351,7 @@ export default function SingleTransaction({ onSaveResult }) {
             className="btn btn-primary"
             style={{ padding: "11px 26px", fontSize: "0.92rem" }}
             onClick={handlePredict}
-            disabled={predicting || loadingTx || !txDetails}
+            disabled={predicting || loadingTx || (datasetAvailable && !txDetails)}
           >
             <Shield size={16} />
             <span>{predicting ? "FinShield Analyzing..." : "Analyze Transaction"}</span>
@@ -298,7 +368,7 @@ export default function SingleTransaction({ onSaveResult }) {
                 FinShield Inference Outcome
               </div>
               <div style={{ fontSize: "1.35rem", fontWeight: 700, color: "var(--text-main)", marginTop: "2px" }}>
-                Transaction #{result.transaction_id}
+                {result.transaction_id === null ? "Manual Feature Prediction" : `Transaction #${result.transaction_id}`}
               </div>
             </div>
 
