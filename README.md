@@ -172,8 +172,16 @@ origins as a comma-separated value, for example:
 
 The model artifacts in `backend/` are included in the repository. The large
 `Dataset/creditcard.csv` file is intentionally excluded from GitHub; provide it
-to the Render service separately and set `FINSHIELD_DATASET_PATH` to its absolute
+to the Render service separately and set `FINSHIELD_DATASET_PATH` to its deployed
 path if dataset browsing and dataset-backed transaction lookup are required.
+For Render, use a persistent disk mounted at `/var/data`, upload the dataset as
+`/var/data/creditcard.csv`, and set:
+
+`FINSHIELD_DATASET_PATH=/var/data/creditcard.csv`
+
+The web service must be restarted after the file is uploaded. Without the real
+dataset, `/health` reports `dataset_loaded: false` and dataset endpoints return
+HTTP 503 rather than fabricated statistics.
 
 ## 8. API Endpoints
 

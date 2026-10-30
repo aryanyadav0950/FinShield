@@ -193,6 +193,7 @@ def health_check():
         "scaler_loaded": state["scaler"] is not None,
         "threshold": state["threshold"],
         "dataset_loaded": state["dataset_df"] is not None,
+        "dataset_file_exists": DATASET_PATH.is_file(),
         "total_transactions": len(state["dataset_df"])
         if state["dataset_df"] is not None
         else 0,
@@ -202,14 +203,17 @@ def health_check():
 @app.get("/dataset/summary")
 def get_dataset_summary(refresh: bool = Query(False, description="Force recomputation")):
     """Returns dataset overview statistics, amount distribution, and anomaly results."""
-    if state["cache"] is not None and not refresh:
-        return state["cache"]
-
     if state["dataset_df"] is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Dataset is not currently loaded.",
+            detail=(
+                "Dataset is not currently loaded. Provide Dataset/creditcard.csv "
+                "on the backend host or set FINSHIELD_DATASET_PATH to its deployed path."
+            ),
         )
+
+    if state["cache"] is not None and not refresh:
+        return state["cache"]
 
     df = state["dataset_df"]
     scaler = state["scaler"]

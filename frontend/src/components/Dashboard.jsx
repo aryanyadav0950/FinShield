@@ -57,32 +57,48 @@ export default function Dashboard() {
     };
   }, []);
 
+  if (loading) {
+    return (
+      <div className="page-container">
+        <div className="alert-card" role="status">
+          <Database size={18} />
+          <span>Loading dataset statistics...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="page-container">
+        <div className="alert-card alert-danger" role="alert">
+          <AlertTriangle size={18} />
+          <span>{error || "Dataset statistics are unavailable."}</span>
+          <button className="btn btn-secondary btn-sm" onClick={() => fetchSummary(true)}>
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const isDark = resolvedTheme === "dark";
   const textColor = isDark ? "#94a3b8" : "#64748b";
   const gridColor = isDark ? "rgba(255, 255, 255, 0.07)" : "#f1f5f9";
 
-  // Data calculations & fallbacks matching real dataset
-  const totalTx = data?.total_transactions || 284807;
-  const potentialAnomalies = data?.potential_anomalies || 1176;
-  const normalTx = data?.normal_transactions || 283631;
-  const anomalyRate = data?.anomaly_rate ?? 0.00413;
-  const actualFraud = data?.actual_fraud_count || 492;
+  const totalTx = data.total_transactions;
+  const potentialAnomalies = data.potential_anomalies;
+  const normalTx = data.normal_transactions;
+  const anomalyRate = data.anomaly_rate;
+  const actualFraud = data.actual_fraud_count;
 
   const normalPct = ((normalTx / totalTx) * 100).toFixed(3);
   const anomalyPct = ((potentialAnomalies / totalTx) * 100).toFixed(3);
 
   // Chart 1: Amount Distribution (Normal vs Actual Fraud)
-  const amountLabels = data?.amount_distribution?.labels || [
-    "0-5", "5-20", "20-50", "50-100", "100-200", "200-500", "500-1K", "1K+",
-  ];
-  const normalCounts = data?.amount_distribution?.normal_counts || {
-    "0-5": 68810, "5-20": 70049, "20-50": 51880, "50-100": 37198,
-    "100-200": 27626, "200-500": 19645, "500-1K": 6176, "1K+": 2931,
-  };
-  const fraudCounts = data?.amount_distribution?.actual_fraud_counts || {
-    "0-5": 222, "5-20": 49, "20-50": 35, "50-100": 56,
-    "100-200": 45, "200-500": 50, "500-1K": 26, "1K+": 9,
-  };
+  const amountLabels = data.amount_distribution.labels;
+  const normalCounts = data.amount_distribution.normal_counts;
+  const fraudCounts = data.amount_distribution.actual_fraud_counts;
 
   const amountDistributionData = {
     labels: amountLabels,
@@ -374,22 +390,22 @@ export default function Dashboard() {
                 <tr>
                   <td className="attr-name">Amount (Mean / Median)</td>
                   <td className="attr-value">
-                    ${data?.amount_stats?.mean != null ? data.amount_stats.mean.toFixed(2) : "88.35"} / $
-                    {data?.amount_stats?.median != null ? Math.round(data.amount_stats.median) : "22"}
+                    ${data.amount_stats.mean.toFixed(2)} / $
+                    {Math.round(data.amount_stats.median)}
                   </td>
                   <td className="attr-desc">
-                    Standard deviation: ${data?.amount_stats?.std != null ? data.amount_stats.std.toFixed(2) : "250.12"}
+                    Standard deviation: ${data.amount_stats.std.toFixed(2)}
                   </td>
                 </tr>
                 <tr>
                   <td className="attr-name">Amount Range</td>
                   <td className="attr-value">
-                    ${data?.amount_stats?.min != null ? data.amount_stats.min.toFixed(2) : "0.00"} – $
-                    {data?.amount_stats?.max != null ? data.amount_stats.max.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "25,691.16"}
+                    ${data.amount_stats.min.toFixed(2)} – $
+                    {data.amount_stats.max.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td className="attr-desc">
-                    IQR: ${data?.amount_stats?.q25 != null ? data.amount_stats.q25.toFixed(1) : "5.6"} (25th) to $
-                    {data?.amount_stats?.q75 != null ? data.amount_stats.q75.toFixed(2) : "77.16"} (75th)
+                    IQR: ${data.amount_stats.q25.toFixed(1)} (25th) to $
+                    {data.amount_stats.q75.toFixed(2)} (75th)
                   </td>
                 </tr>
               </tbody>
