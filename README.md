@@ -156,7 +156,26 @@ npm run dev -- --host 127.0.0.1 --port 5173
 
 ---
 
-## 7. API Endpoints
+## 7. Deploying the Backend on Render
+
+Create a Render Web Service from this repository with:
+
+- **Root Directory**: repository root
+- **Runtime**: Python
+- **Build Command**: `pip install -r backend/requirements.txt`
+- **Start Command**: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+- **Environment Variable**: `FRONTEND_ORIGINS=https://<your-vercel-domain>`
+
+The backend keeps localhost origins enabled for development. Add multiple frontend
+origins as a comma-separated value, for example:
+`https://finshield.vercel.app,http://localhost:5173`.
+
+The model artifacts in `backend/` are included in the repository. The large
+`Dataset/creditcard.csv` file is intentionally excluded from GitHub; provide it
+to the Render service separately and set `FINSHIELD_DATASET_PATH` to its absolute
+path if dataset browsing and dataset-backed transaction lookup are required.
+
+## 8. API Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|

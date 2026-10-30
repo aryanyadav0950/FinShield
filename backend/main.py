@@ -3,6 +3,7 @@ import json
 import pickle
 import warnings
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import joblib
@@ -16,13 +17,37 @@ from pydantic import BaseModel, Field
 warnings.filterwarnings("ignore", category=UserWarning)
 
 # Base Paths
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(BASE_DIR)
-DATASET_PATH = os.path.join(PROJECT_ROOT, "Dataset", "creditcard.csv")
-MODEL_PATH = os.path.join(BASE_DIR, "isolation_forest_model.pkl")
-SCALER_PATH = os.path.join(BASE_DIR, "scaler.pkl")
-THRESHOLD_PATH = os.path.join(BASE_DIR, "threshold.pkl")
-CACHE_PATH = os.path.join(BASE_DIR, "dataset_cache.json")
+BASE_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = BASE_DIR.parent
+DATASET_PATH = Path(
+    os.getenv("FINSHIELD_DATASET_PATH", PROJECT_ROOT / "Dataset" / "creditcard.csv")
+)
+MODEL_PATH = Path(
+    os.getenv("FINSHIELD_MODEL_PATH", BASE_DIR / "isolation_forest_model.pkl")
+)
+SCALER_PATH = Path(os.getenv("FINSHIELD_SCALER_PATH", BASE_DIR / "scaler.pkl"))
+THRESHOLD_PATH = Path(
+    os.getenv("FINSHIELD_THRESHOLD_PATH", BASE_DIR / "threshold.pkl")
+)
+CACHE_PATH = Path(
+    os.getenv("FINSHIELD_CACHE_PATH", BASE_DIR / "dataset_cache.json")
+)
+
+DEFAULT_FRONTEND_ORIGINS = {
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+}
+configured_origins = os.getenv("FRONTEND_ORIGINS", "")
+ALLOWED_ORIGINS = (
+    {
+        origin.strip().rstrip("/")
+        for origin in configured_origins.split(",")
+        if origin.strip()
+    }
+    | DEFAULT_FRONTEND_ORIGINS
+)
 
 FEATURE_COLUMNS = ["Time"] + [f"V{i}" for i in range(1, 29)] + ["Amount"]
 
@@ -85,7 +110,7 @@ app = FastAPI(
 # Enable CORS for frontend integration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=sorted(ALLOWED_ORIGINS),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
