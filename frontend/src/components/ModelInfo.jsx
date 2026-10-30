@@ -4,15 +4,25 @@ import { getModelInfo } from "../api";
 
 export default function ModelInfo() {
   const [info, setInfo] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     getModelInfo()
-      .then((data) => setInfo(data))
-      .catch((err) => console.error("Error fetching model info:", err));
+      .then((data) => {
+        setInfo(data);
+        setError(null);
+      })
+      .catch((err) => setError(err.message || "Failed to load model information."));
   }, []);
 
   return (
     <div className="page-container">
+      {error && (
+        <div className="alert-card alert-danger" role="alert" style={{ marginBottom: "22px" }}>
+          <AlertCircle size={18} />
+          <span>{error}</span>
+        </div>
+      )}
       {/* Notice Banner */}
       <div className="info-banner" style={{ marginBottom: "22px" }}>
         <div className="info-banner-icon">

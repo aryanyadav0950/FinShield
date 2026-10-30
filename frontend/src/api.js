@@ -1,49 +1,29 @@
-// Candidate backend endpoints (prioritizing port 8001 per user configuration)
-const CANDIDATE_BASES = [
-  "http://127.0.0.1:8001",
-  "http://localhost:8001",
-  "http://127.0.0.1:8000",
-  "http://localhost:8000",
-];
+const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
+const API_BASE_URL = (configuredApiBase || "http://localhost:8000").replace(/\/+$/, "");
 
-let activeApiBase = CANDIDATE_BASES[0];
-
-/**
- * Robust fetch wrapper that attempts candidate endpoints with automatic fallback.
- */
 async function apiFetch(path, options = {}) {
-  // First try the currently active base
   try {
-    const res = await fetch(`${activeApiBase}${path}`, options);
+    const res = await fetch(`${API_BASE_URL}${path}`, options);
     return res;
-  } catch (initialErr) {
-    // If connection failed, test remaining candidates
-    for (const base of CANDIDATE_BASES) {
-      if (base === activeApiBase) continue;
-      try {
-        const res = await fetch(`${base}${path}`, options);
-        activeApiBase = base; // Switch to the active responding base
-        return res;
-      } catch {
-        // Continue checking candidates
-      }
-    }
-    throw initialErr;
+  } catch {
+    throw new Error("The FinShield backend is unavailable. Check your connection and try again.");
   }
+}
+
+async function getApiError(res, fallbackMessage) {
+  const err = await res.json().catch(() => ({}));
+  return new Error(err.detail || `${fallbackMessage} (${res.status})`);
 }
 
 export async function getHealth() {
   const res = await apiFetch("/health");
-  if (!res.ok) throw new Error(`Health check failed (${res.status})`);
+  if (!res.ok) throw await getApiError(res, "Health check failed");
   return res.json();
 }
 
 export async function getDatasetSummary(refresh = false) {
   const res = await apiFetch(`/dataset/summary?refresh=${refresh}`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `Failed to fetch dataset summary (${res.status})`);
-  }
+  if (!res.ok) throw await getApiError(res, "Failed to fetch dataset summary");
   return res.json();
 }
 
@@ -59,19 +39,13 @@ export async function getTransactions(page = 1, pageSize = 20, classFilter = "",
   }
 
   const res = await apiFetch(`/transactions?${params.toString()}`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `Failed to fetch transactions (${res.status})`);
-  }
+  if (!res.ok) throw await getApiError(res, "Failed to fetch transactions");
   return res.json();
 }
 
 export async function getTransaction(id) {
   const res = await apiFetch(`/transactions/${id}`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `Failed to fetch transaction #${id}`);
-  }
+  if (!res.ok) throw await getApiError(res, `Failed to fetch transaction #${id}`);
   return res.json();
 }
 
@@ -89,10 +63,7 @@ export async function predictSingle(transactionId = null, features = null) {
     body: JSON.stringify(body),
   });
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `Prediction failed (${res.status})`);
-  }
+  if (!res.ok) throw await getApiError(res, "Prediction failed");
   return res.json();
 }
 
@@ -105,18 +76,12 @@ export async function predictBatch(file) {
     body: formData,
   });
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `Batch analysis failed (${res.status})`);
-  }
+  if (!res.ok) throw await getApiError(res, "Batch analysis failed");
   return res.json();
 }
 
 export async function getModelInfo() {
   const res = await apiFetch("/model-info");
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || `Failed to fetch model info (${res.status})`);
-  }
+  if (!res.ok) throw await getApiError(res, "Failed to fetch model info");
   return res.json();
 }
