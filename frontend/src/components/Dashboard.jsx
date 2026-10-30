@@ -28,6 +28,7 @@ export default function Dashboard() {
     try {
       setLoading(true);
       setError(null);
+      setData(null);
       const res = await getDatasetSummary(refresh);
       setData(res);
     } catch (err) {
@@ -43,6 +44,7 @@ export default function Dashboard() {
       try {
         setLoading(true);
         setError(null);
+        setData(null);
         const res = await getDatasetSummary(false);
         if (isMounted) setData(res);
       } catch (err) {
@@ -68,37 +70,24 @@ export default function Dashboard() {
     );
   }
 
-  if (error || !data) {
-    return (
-      <div className="page-container">
-        <div className="alert-card alert-danger" role="alert">
-          <AlertTriangle size={18} />
-          <span>{error || "Dataset statistics are unavailable."}</span>
-          <button className="btn btn-secondary btn-sm" onClick={() => fetchSummary(true)}>
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const isDark = resolvedTheme === "dark";
+  const datasetReady = Boolean(data);
   const textColor = isDark ? "#94a3b8" : "#64748b";
   const gridColor = isDark ? "rgba(255, 255, 255, 0.07)" : "#f1f5f9";
 
-  const totalTx = data.total_transactions;
-  const potentialAnomalies = data.potential_anomalies;
-  const normalTx = data.normal_transactions;
-  const anomalyRate = data.anomaly_rate;
-  const actualFraud = data.actual_fraud_count;
+  const totalTx = data?.total_transactions;
+  const potentialAnomalies = data?.potential_anomalies;
+  const normalTx = data?.normal_transactions;
+  const anomalyRate = data?.anomaly_rate;
+  const actualFraud = data?.actual_fraud_count;
 
-  const normalPct = ((normalTx / totalTx) * 100).toFixed(3);
-  const anomalyPct = ((potentialAnomalies / totalTx) * 100).toFixed(3);
+  const normalPct = datasetReady ? ((normalTx / totalTx) * 100).toFixed(3) : null;
+  const anomalyPct = datasetReady ? ((potentialAnomalies / totalTx) * 100).toFixed(3) : null;
 
   // Chart 1: Amount Distribution (Normal vs Actual Fraud)
-  const amountLabels = data.amount_distribution.labels;
-  const normalCounts = data.amount_distribution.normal_counts;
-  const fraudCounts = data.amount_distribution.actual_fraud_counts;
+  const amountLabels = data?.amount_distribution?.labels || [];
+  const normalCounts = data?.amount_distribution?.normal_counts || {};
+  const fraudCounts = data?.amount_distribution?.actual_fraud_counts || {};
 
   const amountDistributionData = {
     labels: amountLabels,
@@ -192,7 +181,7 @@ export default function Dashboard() {
     labels: ["Normal Transactions", "Potential Anomalies"],
     datasets: [
       {
-        data: [normalTx, potentialAnomalies],
+        data: datasetReady ? [normalTx, potentialAnomalies] : [],
         backgroundColor: ["#10b981", "#ef4444"],
         borderColor: isDark ? ["#0e1629", "#0e1629"] : ["#ffffff", "#ffffff"],
         borderWidth: 2,
@@ -217,7 +206,7 @@ export default function Dashboard() {
         callbacks: {
           label: (context) => {
             const val = context.raw || 0;
-            const pct = ((val / totalTx) * 100).toFixed(3);
+            const pct = totalTx ? ((val / totalTx) * 100).toFixed(3) : "0.000";
             return ` ${context.label}: ${val.toLocaleString()} (${pct}%)`;
           },
         },
@@ -273,7 +262,7 @@ export default function Dashboard() {
               <span className="kpi-label">Transactions Analyzed</span>
             </div>
             <div className="kpi-value">
-              {loading ? "..." : totalTx.toLocaleString()}
+              {loading ? "..." : datasetReady ? totalTx.toLocaleString() : "Unavailable"}
             </div>
             <div className="kpi-subtext">Total verified transactions in dataset</div>
           </div>
@@ -290,7 +279,7 @@ export default function Dashboard() {
               <span className="kpi-label">Potential Anomalies</span>
             </div>
             <div className="kpi-value kpi-val-red">
-              {loading ? "..." : potentialAnomalies.toLocaleString()}
+              {loading ? "..." : datasetReady ? potentialAnomalies.toLocaleString() : "Unavailable"}
             </div>
             <div className="kpi-subtext">Model score ≥ 0.120 threshold</div>
           </div>
@@ -307,7 +296,7 @@ export default function Dashboard() {
               <span className="kpi-label">Normal Transactions</span>
             </div>
             <div className="kpi-value kpi-val-green">
-              {loading ? "..." : normalTx.toLocaleString()}
+              {loading ? "..." : datasetReady ? normalTx.toLocaleString() : "Unavailable"}
             </div>
             <div className="kpi-subtext">Within expected data distribution</div>
           </div>
@@ -324,7 +313,7 @@ export default function Dashboard() {
               <span className="kpi-label">Anomaly Rate</span>
             </div>
             <div className="kpi-value kpi-val-purple">
-              {loading ? "..." : `${(anomalyRate * 100).toFixed(3)}%`}
+              {loading ? "..." : datasetReady ? `${(anomalyRate * 100).toFixed(3)}%` : "Unavailable"}
             </div>
             <div className="kpi-subtext">Ratio of anomalies to total records</div>
           </div>
@@ -369,7 +358,7 @@ export default function Dashboard() {
               <tbody>
                 <tr>
                   <td className="attr-name">Total Records</td>
-                  <td className="attr-value">{totalTx.toLocaleString()} rows</td>
+                  <td className="attr-value">{datasetReady ? `${totalTx.toLocaleString()} rows` : "Unavailable"}</td>
                   <td className="attr-desc">Total transactions analyzed across 48 hours</td>
                 </tr>
                 <tr>
@@ -379,33 +368,34 @@ export default function Dashboard() {
                 </tr>
                 <tr>
                   <td className="attr-name">Actual Fraud Prevalence</td>
-                  <td className="attr-value">{actualFraud} cases (0.173%)</td>
+                  <td className="attr-value">
+                    {datasetReady ? `${actualFraud} cases (${((actualFraud / totalTx) * 100).toFixed(3)}%)` : "Unavailable"}
+                  </td>
                   <td className="attr-desc">Ground-truth Class=1 instances</td>
                 </tr>
                 <tr>
                   <td className="attr-name">Model Detected Anomalies</td>
-                  <td className="attr-value">{potentialAnomalies.toLocaleString()} cases ({anomalyPct}%)</td>
+                  <td className="attr-value">
+                    {datasetReady ? `${potentialAnomalies.toLocaleString()} cases (${anomalyPct}%)` : "Unavailable"}
+                  </td>
                   <td className="attr-desc">Isolation Forest score ≥ 0.120</td>
                 </tr>
                 <tr>
                   <td className="attr-name">Amount (Mean / Median)</td>
                   <td className="attr-value">
-                    ${data.amount_stats.mean.toFixed(2)} / $
-                    {Math.round(data.amount_stats.median)}
+                    {datasetReady ? `$${data.amount_stats.mean.toFixed(2)} / $${Math.round(data.amount_stats.median)}` : "Unavailable"}
                   </td>
                   <td className="attr-desc">
-                    Standard deviation: ${data.amount_stats.std.toFixed(2)}
+                    {datasetReady ? `Standard deviation: $${data.amount_stats.std.toFixed(2)}` : "Unavailable"}
                   </td>
                 </tr>
                 <tr>
                   <td className="attr-name">Amount Range</td>
                   <td className="attr-value">
-                    ${data.amount_stats.min.toFixed(2)} – $
-                    {data.amount_stats.max.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {datasetReady ? `$${data.amount_stats.min.toFixed(2)} – $${data.amount_stats.max.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "Unavailable"}
                   </td>
                   <td className="attr-desc">
-                    IQR: ${data.amount_stats.q25.toFixed(1)} (25th) to $
-                    {data.amount_stats.q75.toFixed(2)} (75th)
+                    {datasetReady ? `IQR: $${data.amount_stats.q25.toFixed(1)} (25th) to $${data.amount_stats.q75.toFixed(2)}` : "Unavailable"} (75th)
                   </td>
                 </tr>
               </tbody>
@@ -431,14 +421,18 @@ export default function Dashboard() {
             {/* Donut Chart with Centered Total */}
             <div className="donut-chart-wrapper">
               <div className="donut-canvas-container">
-                <SafeDoughnutChart
-                  id="results-donut-chart"
-                  data={resultsDonutData}
-                  options={resultsDonutOptions}
-                />
+                {datasetReady ? (
+                  <SafeDoughnutChart
+                    id="results-donut-chart"
+                    data={resultsDonutData}
+                    options={resultsDonutOptions}
+                  />
+                ) : (
+                  <div className="empty-state">Dataset statistics unavailable</div>
+                )}
                 {/* Center text cutout */}
                 <div className="donut-center-label">
-                  <span className="donut-center-number">{totalTx.toLocaleString()}</span>
+                  <span className="donut-center-number">{datasetReady ? totalTx.toLocaleString() : "—"}</span>
                   <span className="donut-center-sub">Total Transactions</span>
                 </div>
               </div>
@@ -452,7 +446,7 @@ export default function Dashboard() {
                   <span className="legend-name">Normal Transactions</span>
                 </div>
                 <div className="legend-value-bold">
-                  {normalTx.toLocaleString()} ({normalPct}%)
+                  {datasetReady ? `${normalTx.toLocaleString()} (${normalPct}%)` : "Unavailable"}
                 </div>
               </div>
 
@@ -462,7 +456,7 @@ export default function Dashboard() {
                   <span className="legend-name">Potential Anomalies</span>
                 </div>
                 <div className="legend-value-bold">
-                  {potentialAnomalies.toLocaleString()} ({anomalyPct}%)
+                  {datasetReady ? `${potentialAnomalies.toLocaleString()} (${anomalyPct}%)` : "Unavailable"}
                 </div>
               </div>
             </div>
@@ -501,11 +495,15 @@ export default function Dashboard() {
           </div>
 
           <div className="dash-chart-body" style={{ height: "240px" }}>
-            <SafeBarChart
-              id="amount-bar-chart"
-              data={amountDistributionData}
-              options={amountChartOptions}
-            />
+            {datasetReady ? (
+              <SafeBarChart
+                id="amount-bar-chart"
+                data={amountDistributionData}
+                options={amountChartOptions}
+              />
+            ) : (
+              <div className="empty-state">Dataset statistics unavailable</div>
+            )}
           </div>
         </div>
 
@@ -524,7 +522,11 @@ export default function Dashboard() {
           </div>
 
           <div className="dash-chart-body" style={{ height: "240px" }}>
-            <BoxPlotChart boxplotData={data?.boxplot_stats} />
+            {datasetReady ? (
+              <BoxPlotChart boxplotData={data.boxplot_stats} />
+            ) : (
+              <div className="empty-state">Dataset statistics unavailable</div>
+            )}
           </div>
         </div>
       </div>
