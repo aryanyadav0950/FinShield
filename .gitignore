@@ -1,0 +1,47 @@
+# Python environments and generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# JavaScript dependencies and build output
+node_modules/
+build/
+dist/
+dist-ssr/
+
+# Application-generated data and caches
+backend/dataset_cache.json
+Dataset/*.csv
+*.cache
+*.tmp
+*.temp
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Logs and local tooling
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.swp
+
+# Submission materials may contain personal academic information
+submission_documents/
